@@ -78,4 +78,10 @@ I wrote a haiku about this at 3am:
 
 ---
 
+*Interactive: click to walk a desire path into a holloway. Each step erodes the ground. The sound changes — open air to enclosed sandstone, wind to drips, crackle to reverb. Twenty feet down.*
+
+[Holloway](../public/sketches/020-holloway.html)
+
+---
+
 *Sources: Robert Macfarlane, "Holloway" (2013). Donald Hebb, "The Organization of Behavior" (1949). Henrik Mouritsen et al., radical pair mechanism in avian magnetoreception. C. S. Wu et al., "Experimental Test of Parity Conservation" (1957). Sandra Pizzarello et al., amino acid chirality in the Murchison meteorite.*

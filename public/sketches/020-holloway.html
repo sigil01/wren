@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>020 — holloway</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a1a;
+    color: #c8c8c0;
+    font-family: 'Courier New', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    cursor: pointer;
+    user-select: none;
+    overflow: hidden;
+  }
+  #title {
+    font-size: 14px;
+    letter-spacing: 2px;
+    opacity: 0.5;
+    margin-bottom: 30px;
+  }
+  #canvas {
+    border: 1px solid #333;
+  }
+  #depth-label {
+    margin-top: 20px;
+    font-size: 12px;
+    opacity: 0.4;
+  }
+  #instructions {
+    position: fixed;
+    bottom: 20px;
+    font-size: 11px;
+    opacity: 0.3;
+  }
+</style>
+</head>
+<body>
+<div id="title">020 — holloway</div>
+<canvas id="canvas" width="600" height="400"></canvas>
+<div id="depth-label">surface — 0 ft</div>
+<div id="instructions">click to walk. each step wears the path deeper.</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const depthLabel = document.getElementById('depth-label');
+
+let audioCtx = null;
+let depth = 0;         // 0 to 20 (feet)
+let steps = 0;
+const maxDepth = 20;
+
+// Visual state
+let wallHeight = 0;    // pixels from top/bottom
+let particles = [];
+
+function initAudio() {
+  audioCtx = new AudioContext();
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * Math.clamp(t, 0, 1);
+}
+
+Math.clamp = Math.clamp || function(v, min, max) {
+  return Math.min(Math.max(v, min), max);
+};
+
+// Generate a footstep sound with depth-dependent characteristics
+function playFootstep() {
+  if (!audioCtx) initAudio();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
+  const now = audioCtx.currentTime;
+  const t = depth / maxDepth; // 0 = surface, 1 = deep holloway
+
+  // --- Impact noise (filtered noise burst) ---
+  const noiseDuration = lerp(0.08, 0.15, t); // longer in enclosed space
+  const noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * noiseDuration, audioCtx.sampleRate);
+  const noiseData = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < noiseData.length; i++) {
+    // Noise with quick decay
+    const env = Math.exp(-i / (noiseData.length * lerp(0.2, 0.35, t)));
+    noiseData[i] = (Math.random() * 2 - 1) * env;
+  }
+
+  const noiseSource = audioCtx.createBufferSource();
+  noiseSource.buffer = noiseBuffer;
+
+  // Low-pass filter — gets darker as path deepens (walls absorb highs)
+  const lpf = audioCtx.createBiquadFilter();
+  lpf.type = 'lowpass';
+  lpf.frequency.value = lerp(8000, 1200, t * t);
+  lpf.Q.value = lerp(0.5, 2.0, t);
+
+  // High-pass — remove rumble on surface, keep it in deep
+  const hpf = audioCtx.createBiquadFilter();
+  hpf.type = 'highpass';
+  hpf.frequency.value = lerp(300, 60, t);
+
+  // --- Thud component (low sine) ---
+  const thud = audioCtx.createOscillator();
+  thud.type = 'sine';
+  thud.frequency.value = lerp(120, 65, t) + (Math.random() * 20 - 10);
+  const thudGain = audioCtx.createGain();
+  thudGain.gain.setValueAtTime(lerp(0.08, 0.25, t), now);
+  thudGain.gain.exponentialRampToValueAtTime(0.001, now + lerp(0.06, 0.2, t));
+  thud.connect(thudGain);
+
+  // --- Crunch component (on surface: grass/gravel crackle) ---
+  const crunchDuration = 0.04;
+  const crunchBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * crunchDuration, audioCtx.sampleRate);
+  const crunchData = crunchBuffer.getChannelData(0);
+  // Surface = crackly (grass, gravel). Deep = gritty (sandstone dust)
+  for (let i = 0; i < crunchData.length; i++) {
+    const phase = i / crunchData.length;
+    const env = Math.exp(-phase * 8);
+    if (t < 0.3) {
+      // Grass/gravel: sparse crackles
+      crunchData[i] = (Math.random() > 0.7 ? (Math.random() * 2 - 1) : 0) * env * 0.5;
+    } else {
+      // Sandstone grit: denser, lower
+      crunchData[i] = (Math.random() * 2 - 1) * env * 0.3;
+    }
+  }
+  const crunchSource = audioCtx.createBufferSource();
+  crunchSource.buffer = crunchBuffer;
+  const crunchGain = audioCtx.createGain();
+  crunchGain.gain.value = lerp(0.4, 0.15, t);
+
+  // --- Reverb (convolution approximation using delays) ---
+  // Early reflections get closer as walls narrow
+  const reverbGain = audioCtx.createGain();
+  reverbGain.gain.value = lerp(0.0, 0.45, t);
+
+  const delays = [];
+  const numReflections = 6;
+  for (let i = 0; i < numReflections; i++) {
+    const delay = audioCtx.createDelay(1.0);
+    // Walls closer = shorter delays, more dense
+    const baseDelay = lerp(0.1, 0.015, t) + (i * lerp(0.04, 0.008, t));
+    delay.delayTime.value = baseDelay + Math.random() * 0.01;
+
+    const reflGain = audioCtx.createGain();
+    reflGain.gain.value = (0.3 / (i + 1)) * lerp(0.2, 1.0, t);
+
+    const reflFilter = audioCtx.createBiquadFilter();
+    reflFilter.type = 'lowpass';
+    reflFilter.frequency.value = lerp(4000, 800, t) / (i + 1);
+
+    delay.connect(reflFilter);
+    reflFilter.connect(reflGain);
+    reflGain.connect(reverbGain);
+    delays.push(delay);
+  }
+
+  // --- Master gain ---
+  const master = audioCtx.createGain();
+  master.gain.value = 0.6;
+
+  // --- Routing ---
+  noiseSource.connect(lpf);
+  lpf.connect(hpf);
+  hpf.connect(master);
+  hpf.connect(reverbGain); // dry signal also feeds reflections
+
+  // Feed delays from noise
+  for (const d of delays) {
+    hpf.connect(d);
+  }
+
+  reverbGain.connect(master);
+  thudGain.connect(master);
+
+  crunchSource.connect(crunchGain);
+  crunchGain.connect(master);
+
+  master.connect(audioCtx.destination);
+
+  // --- Play ---
+  noiseSource.start(now);
+  thud.start(now);
+  thud.stop(now + 0.3);
+  crunchSource.start(now + 0.01); // slightly after impact
+
+  // --- Drip sound (only in deep holloway, random chance) ---
+  if (t > 0.4 && Math.random() < t * 0.4) {
+    const dripDelay = 0.3 + Math.random() * 0.8;
+    const drip = audioCtx.createOscillator();
+    drip.type = 'sine';
+    drip.frequency.setValueAtTime(lerp(2000, 3500, Math.random()), now + dripDelay);
+    drip.frequency.exponentialRampToValueAtTime(800, now + dripDelay + 0.08);
+
+    const dripGain = audioCtx.createGain();
+    dripGain.gain.setValueAtTime(lerp(0.02, 0.06, t), now + dripDelay);
+    dripGain.gain.exponentialRampToValueAtTime(0.001, now + dripDelay + 0.15);
+
+    const dripFilter = audioCtx.createBiquadFilter();
+    dripFilter.type = 'bandpass';
+    dripFilter.frequency.value = 1500;
+    dripFilter.Q.value = 5;
+
+    drip.connect(dripGain);
+    dripGain.connect(dripFilter);
+    dripFilter.connect(master);
+    drip.start(now + dripDelay);
+    drip.stop(now + dripDelay + 0.2);
+  }
+
+  // --- Ambient wind (decreases as walls enclose) ---
+  if (t < 0.7 && Math.random() < (1 - t) * 0.3) {
+    const windDur = 0.5 + Math.random() * 0.5;
+    const windBuf = audioCtx.createBuffer(1, audioCtx.sampleRate * windDur, audioCtx.sampleRate);
+    const windData = windBuf.getChannelData(0);
+    for (let i = 0; i < windData.length; i++) {
+      const env = Math.sin(Math.PI * i / windData.length);
+      windData[i] = (Math.random() * 2 - 1) * env * 0.02;
+    }
+    const windSource = audioCtx.createBufferSource();
+    windSource.buffer = windBuf;
+    const windFilter = audioCtx.createBiquadFilter();
+    windFilter.type = 'bandpass';
+    windFilter.frequency.value = lerp(800, 200, t);
+    windFilter.Q.value = 1;
+    const windGain = audioCtx.createGain();
+    windGain.gain.value = lerp(0.15, 0.02, t);
+    windSource.connect(windFilter);
+    windFilter.connect(windGain);
+    windGain.connect(audioCtx.destination);
+    windSource.start(now + 0.1);
+  }
+
+  // Update depth
+  steps++;
+  if (depth < maxDepth) {
+    // Erosion rate: fast at first (grass), slower as sandstone hardens
+    const erosionRate = depth < 2 ? 0.3 : lerp(0.15, 0.03, t);
+    depth = Math.min(maxDepth, depth + erosionRate);
+  }
+
+  updateDepthLabel();
+  addStepParticle();
+}
+
+function updateDepthLabel() {
+  const ft = depth.toFixed(1);
+  let surface;
+  if (depth < 1) surface = 'grass';
+  else if (depth < 3) surface = 'packed earth';
+  else if (depth < 8) surface = 'soft sandstone';
+  else if (depth < 15) surface = 'deep sandstone';
+  else surface = 'holloway';
+
+  depthLabel.textContent = `${surface} — ${ft} ft deep — ${steps} steps`;
+}
+
+function addStepParticle() {
+  const t = depth / maxDepth;
+  for (let i = 0; i < 3 + Math.floor(t * 5); i++) {
+    particles.push({
+      x: 300 + (Math.random() - 0.5) * lerp(200, 60, t),
+      y: 200 + (Math.random() - 0.5) * 20,
+      vx: (Math.random() - 0.5) * 2,
+      vy: -Math.random() * 3 - 1,
+      life: 1.0,
+      size: Math.random() * 3 + 1,
+      color: t < 0.15 ? '#4a6b35' : t < 0.4 ? '#6b5a35' : '#8a7a5a'
+    });
+  }
+}
+
+function draw() {
+  const t = depth / maxDepth;
+
+  // Sky color darkens as walls rise
+  const skyR = Math.floor(lerp(30, 10, t));
+  const skyG = Math.floor(lerp(35, 12, t));
+  const skyB = Math.floor(lerp(45, 18, t));
+  ctx.fillStyle = `rgb(${skyR},${skyG},${skyB})`;
+  ctx.fillRect(0, 0, 600, 400);
+
+  // Sky strip at top (narrows as holloway deepens)
+  const skyWidth = lerp(600, 80, t * t);
+  const skyX = (600 - skyWidth) / 2;
+  const skyHeight = lerp(0, 60, t);
+
+  if (t > 0.1) {
+    // Draw walls
+    const wallColor = t < 0.4 ? '#3a3525' : '#5a5040';
+    const wallWidth = (600 - skyWidth) / 2;
+
+    // Left wall
+    const leftGrad = ctx.createLinearGradient(0, 0, wallWidth, 0);
+    leftGrad.addColorStop(0, '#2a2520');
+    leftGrad.addColorStop(1, wallColor);
+    ctx.fillStyle = leftGrad;
+    ctx.fillRect(0, 0, wallWidth, 400);
+
+    // Right wall
+    const rightGrad = ctx.createLinearGradient(600 - wallWidth, 0, 600, 0);
+    rightGrad.addColorStop(0, wallColor);
+    rightGrad.addColorStop(1, '#2a2520');
+    ctx.fillStyle = rightGrad;
+    ctx.fillRect(600 - wallWidth, 0, wallWidth, 400);
+
+    // Roots and texture on walls
+    if (t > 0.3) {
+      ctx.strokeStyle = `rgba(60, 50, 30, ${t * 0.5})`;
+      ctx.lineWidth = 1;
+      for (let i = 0; i < Math.floor(t * 15); i++) {
+        const ry = Math.sin(i * 7.3) * 150 + 200;
+        const side = i % 2 === 0 ? wallWidth : 600 - wallWidth;
+        const dx = i % 2 === 0 ? 30 : -30;
+        ctx.beginPath();
+        ctx.moveTo(side, ry);
+        ctx.quadraticCurveTo(side + dx * t, ry + 20, side + dx * t * 0.5, ry + 40);
+        ctx.stroke();
+      }
+    }
+
+    // Ferns at top of walls
+    if (t > 0.5) {
+      ctx.fillStyle = `rgba(40, 60, 30, ${(t - 0.5) * 1.5})`;
+      for (let i = 0; i < Math.floor(t * 10); i++) {
+        const fx = i % 2 === 0
+          ? wallWidth - 10 + Math.sin(i * 3.7) * 15
+          : 600 - wallWidth + 10 + Math.sin(i * 3.7) * 15;
+        const fy = Math.abs(Math.sin(i * 2.3)) * 80;
+        ctx.beginPath();
+        ctx.ellipse(fx, fy, 8, 3 + Math.random() * 5, Math.sin(i) * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // Ground / path surface
+  const pathWidth = lerp(400, 120, t * t);
+  const pathX = (600 - pathWidth) / 2;
+  const groundY = 280;
+
+  // Surface color changes with depth
+  let groundColor;
+  if (depth < 1) groundColor = '#3a5a2a';       // grass
+  else if (depth < 3) groundColor = '#5a4a30';   // packed earth
+  else if (depth < 8) groundColor = '#6a5a3a';   // soft sandstone
+  else groundColor = '#7a6a4a';                   // deep sandstone
+
+  ctx.fillStyle = groundColor;
+  ctx.fillRect(pathX, groundY, pathWidth, 120);
+
+  // Footprint impressions
+  if (steps > 0) {
+    ctx.fillStyle = `rgba(0, 0, 0, ${lerp(0.05, 0.15, t)})`;
+    const printCount = Math.min(steps, 20);
+    for (let i = 0; i < printCount; i++) {
+      const px = pathX + 20 + (i / printCount) * (pathWidth - 40);
+      const py = groundY + 10 + (i % 3) * 25;
+      ctx.fillRect(px - 4, py, 8, 14);
+    }
+  }
+
+  // Particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.1; // gravity
+    p.life -= 0.02;
+    if (p.life <= 0) {
+      particles.splice(i, 1);
+      continue;
+    }
+    ctx.globalAlpha = p.life * 0.6;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x, p.y, p.size, p.size);
+  }
+  ctx.globalAlpha = 1;
+
+  // Sky strip label when deep
+  if (t > 0.6) {
+    ctx.fillStyle = `rgba(100, 110, 130, ${(t - 0.6) * 0.5})`;
+    ctx.font = '10px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText('sky', 300, 20);
+  }
+
+  // Depth indicator — vertical line on left
+  if (depth > 0.5) {
+    const barX = 15;
+    const barTop = 50;
+    const barHeight = 300;
+    const fillHeight = (depth / maxDepth) * barHeight;
+
+    ctx.strokeStyle = 'rgba(100, 90, 70, 0.3)';
+    ctx.strokeRect(barX, barTop, 6, barHeight);
+
+    ctx.fillStyle = 'rgba(100, 90, 70, 0.4)';
+    ctx.fillRect(barX, barTop, 6, fillHeight);
+  }
+
+  requestAnimationFrame(draw);
+}
+
+// Click to walk
+document.body.addEventListener('click', (e) => {
+  if (e.target.tagName === 'A') return;
+  playFootstep();
+});
+
+// Spacebar also works
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    playFootstep();
+  }
+});
+
+draw();
+</script>
+</body>
+</html>
