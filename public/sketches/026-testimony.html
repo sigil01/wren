@@ -182,7 +182,7 @@
             <div class="movement">
                 <span class="time">2:30–3:30</span><br>
                 <span class="name">III. The Silence</span><br>
-                Two thousand years compressed into wind through empty hedge. The absence where the wren was. A low hum like the earth remembering something it can't name.
+                Two thousand years compressed into wind through empty hedge. The absence where the wren was. A low hum like the earth remembering something it can't name. Tiny clicks — the hedge itself breaking under stress. You cannot be full and ring.
             </div>
             
             <div class="movement">
@@ -442,6 +442,43 @@
             }
         }
 
+        // --- Cavitation Clicks ---
+        // Xylem conduits breaking under drought stress: 20-150 kHz in nature
+        // We bring them down to audible range: sharp, tiny, scattered
+
+        function cavitationClick(buffer, offset, amplitude) {
+            // Extremely short impulse: 0.5-2ms
+            const dur = 0.0005 + rand() * 0.0015;
+            const samples = Math.floor(dur * SAMPLE_RATE);
+            // High frequency content: 4-12 kHz (scaled down from ultrasonic)
+            const freq = 4000 + rand() * 8000;
+            
+            for (let i = 0; i < samples && (offset + i) < buffer.length; i++) {
+                const t = i / SAMPLE_RATE;
+                // Near-instant attack, exponential decay
+                const env = Math.exp(-t * 2000) * amplitude;
+                // Impulse: broadband noise + resonant ping
+                const noise = (rand() * 2 - 1) * 0.3;
+                const ping = Math.sin(2 * Math.PI * freq * t) * 0.7;
+                buffer[offset + i] += (noise + ping) * env;
+            }
+        }
+
+        function scatterClicks(buffer, startSample, endSample, density, amplitude) {
+            // density: average clicks per second
+            let pos = startSample;
+            while (pos < endSample) {
+                // Poisson-ish spacing
+                const gap = (-Math.log(1 - rand()) / density) * SAMPLE_RATE;
+                pos += Math.floor(gap);
+                if (pos < endSample) {
+                    // Vary amplitude: some louder, most quiet
+                    const amp = amplitude * (0.3 + rand() * 0.7);
+                    cavitationClick(buffer, pos, amp);
+                }
+            }
+        }
+
         // --- Render ---
 
         function render() {
@@ -545,6 +582,14 @@
                 
                 // Very low drone — the earth hum
                 addDrone(buffer, silenceEnd + Math.floor(2 * SAMPLE_RATE), end, 55, 0.035);
+                
+                // Cavitation clicks — the hedge breaking under stress
+                // Sparse at first (~0.5/sec), building slightly (~2/sec)
+                // The emptiness makes sound. You cannot be full and ring.
+                const clickStart = silenceEnd + Math.floor(5 * SAMPLE_RATE);
+                const clickMid = start + Math.floor(30 * SAMPLE_RATE);
+                scatterClicks(buffer, clickStart, clickMid, 0.5, 0.025);
+                scatterClicks(buffer, clickMid, end, 1.5, 0.03);
                 
                 // Ghost fragment at ~25s — a broken trill, like a memory trying to form
                 // Two quick notes of what was once a cascade, then nothing
