@@ -226,49 +226,145 @@
         }
 
         // --- Wren Song Synthesis ---
-        // Real wrens: rapid trills, 3–6 kHz, phrases of 4–12 notes, ~50–120ms each
-        // Strong vibrato, sharp attack, quick decay
+        // Eurasian wren (Troglodytes troglodytes): 3–7 kHz, complex phrases
+        // Phrase types: trills, descending cascades, warbles, buzzes
+        // Loudest bird per body weight. Songs 5-10s, 3-5 phrase types each.
 
-        function wrenNote(buffer, offset, freq, duration, amplitude) {
+        function wrenNote(buffer, offset, startFreq, endFreq, duration, amplitude) {
+            // Single note with frequency sweep, harmonics, vibrato
             const samples = Math.floor(duration * SAMPLE_RATE);
-            const attack = Math.floor(0.005 * SAMPLE_RATE);
-            const decay = Math.floor(0.02 * SAMPLE_RATE);
-            const vibratoRate = 25 + rand() * 15; // Hz
-            const vibratoDepth = freq * 0.06;
+            const attack = Math.min(Math.floor(0.003 * SAMPLE_RATE), samples >> 1);
+            const decay = Math.min(Math.floor(0.015 * SAMPLE_RATE), samples >> 1);
+            const vibratoRate = 20 + rand() * 20;
+            const vibratoDepth = startFreq * 0.04;
+            
+            // Track phase continuously for smooth frequency sweeps
+            let phase = 0;
             
             for (let i = 0; i < samples && (offset + i) < buffer.length; i++) {
                 const t = i / SAMPLE_RATE;
-                // Envelope
+                const progress = i / samples;
+                
+                // Envelope: sharp attack, natural decay
                 let env;
                 if (i < attack) env = i / attack;
                 else if (i > samples - decay) env = (samples - i) / decay;
                 else env = 1.0;
+                // Add slight natural decay even in sustain
+                env *= Math.exp(-t * 2.0);
                 env *= amplitude;
                 
-                // Frequency with vibrato
-                const f = freq + Math.sin(2 * Math.PI * vibratoRate * t) * vibratoDepth;
-                // Mix sine + slight harmonic for organic quality
-                const phase = 2 * Math.PI * f * t;
-                const sample = Math.sin(phase) * 0.7 
-                    + Math.sin(phase * 2.02) * 0.15 
-                    + Math.sin(phase * 3.01) * 0.08
-                    + Math.sin(phase * 5.03) * 0.04;
+                // Frequency: sweep from start to end + vibrato
+                const baseF = lerp(startFreq, endFreq, progress);
+                const f = baseF + Math.sin(2 * Math.PI * vibratoRate * t) * vibratoDepth;
+                
+                // Accumulate phase for continuous sweep
+                phase += (2 * Math.PI * f) / SAMPLE_RATE;
+                
+                // Rich harmonics: wrens have bright, penetrating tone
+                const sample = Math.sin(phase) * 0.55
+                    + Math.sin(phase * 2.003) * 0.2
+                    + Math.sin(phase * 3.007) * 0.1
+                    + Math.sin(phase * 4.01) * 0.05
+                    + Math.sin(phase * 5.013) * 0.03
+                    + Math.sin(phase * 7.02) * 0.02;
                 
                 buffer[offset + i] += sample * env;
             }
         }
 
-        function wrenPhrase(buffer, startSample, amplitude) {
-            // A phrase: 3–8 rapid notes
-            const noteCount = 3 + Math.floor(rand() * 6);
-            const baseFreq = 3200 + rand() * 2000; // 3200-5200 Hz
-            let pos = startSample;
+        // Phrase type 1: Trill — rapid repetition at similar pitch
+        function wrenTrill(buffer, pos, baseFreq, amplitude) {
+            const noteCount = 6 + Math.floor(rand() * 10); // 6-15 notes
+            const noteDur = 0.025 + rand() * 0.02; // 25-45ms each (fast!)
+            const gap = 0.008 + rand() * 0.012; // tiny gaps
             
             for (let n = 0; n < noteCount; n++) {
-                const freq = baseFreq + (rand() - 0.5) * 800;
-                const dur = 0.04 + rand() * 0.08; // 40-120ms
-                wrenNote(buffer, pos, freq, dur, amplitude);
-                pos += Math.floor((dur + 0.01 + rand() * 0.03) * SAMPLE_RATE);
+                const jitter = (rand() - 0.5) * 150; // slight pitch wobble
+                wrenNote(buffer, pos, baseFreq + jitter, baseFreq + jitter, noteDur, amplitude);
+                pos += Math.floor((noteDur + gap) * SAMPLE_RATE);
+            }
+            return pos;
+        }
+
+        // Phrase type 2: Descending cascade — tumbling downward
+        function wrenCascade(buffer, pos, startFreq, amplitude) {
+            const noteCount = 4 + Math.floor(rand() * 5); // 4-8 notes
+            const totalDrop = 800 + rand() * 1200; // drop 800-2000 Hz
+            
+            for (let n = 0; n < noteCount; n++) {
+                const progress = n / noteCount;
+                const freq = startFreq - totalDrop * progress;
+                const nextFreq = startFreq - totalDrop * ((n + 1) / noteCount);
+                // Notes get slightly longer as they descend
+                const dur = 0.035 + rand() * 0.03 + progress * 0.02;
+                // Each note itself sweeps down slightly
+                wrenNote(buffer, pos, freq, lerp(freq, nextFreq, 0.4), dur, amplitude);
+                pos += Math.floor((dur + 0.01 + rand() * 0.015) * SAMPLE_RATE);
+            }
+            return pos;
+        }
+
+        // Phrase type 3: Warble — slower, wider pitch jumps
+        function wrenWarble(buffer, pos, centerFreq, amplitude) {
+            const noteCount = 3 + Math.floor(rand() * 3); // 3-5 notes
+            
+            for (let n = 0; n < noteCount; n++) {
+                const jump = (rand() - 0.5) * 1400; // wide jumps
+                const freq = centerFreq + jump;
+                const sweepDir = (rand() > 0.5) ? 200 : -200;
+                const dur = 0.06 + rand() * 0.06; // 60-120ms (slower)
+                wrenNote(buffer, pos, freq, freq + sweepDir, dur, amplitude * 0.9);
+                pos += Math.floor((dur + 0.02 + rand() * 0.04) * SAMPLE_RATE);
+            }
+            return pos;
+        }
+
+        // Phrase type 4: Buzz — extremely rapid, almost continuous
+        function wrenBuzz(buffer, pos, freq, amplitude, buzzDuration) {
+            const dur = buzzDuration || (0.15 + rand() * 0.2); // 150-350ms total
+            const samples = Math.floor(dur * SAMPLE_RATE);
+            const noteRate = 35 + rand() * 15; // 35-50 notes/sec
+            const noteDur = 0.6 / noteRate; // slightly overlapping
+            
+            let t = 0;
+            while (t < dur) {
+                const jitter = (rand() - 0.5) * 300;
+                wrenNote(buffer, pos + Math.floor(t * SAMPLE_RATE), 
+                    freq + jitter, freq + jitter + (rand() - 0.5) * 100,
+                    noteDur, amplitude * 0.7);
+                t += 1.0 / noteRate;
+            }
+            return pos + samples;
+        }
+
+        // Full wren song: 2-4 phrase types strung together
+        function wrenPhrase(buffer, startSample, amplitude) {
+            const phraseTypes = 2 + Math.floor(rand() * 3); // 2-4 sub-phrases
+            let pos = startSample;
+            const songBaseFreq = 3400 + rand() * 1800; // 3400-5200 Hz center
+            
+            for (let p = 0; p < phraseTypes; p++) {
+                const type = Math.floor(rand() * 4);
+                const subAmp = amplitude * (0.8 + rand() * 0.4);
+                
+                switch (type) {
+                    case 0: // trill
+                        pos = wrenTrill(buffer, pos, songBaseFreq + (rand() - 0.5) * 600, subAmp);
+                        break;
+                    case 1: // descending cascade
+                        pos = wrenCascade(buffer, pos, songBaseFreq + 400 + rand() * 400, subAmp);
+                        break;
+                    case 2: // warble
+                        pos = wrenWarble(buffer, pos, songBaseFreq, subAmp);
+                        break;
+                    case 3: // buzz
+                        pos = wrenBuzz(buffer, pos, songBaseFreq + rand() * 800, subAmp);
+                        break;
+                }
+                
+                // Brief pause between sub-phrases
+                pos += Math.floor((0.04 + rand() * 0.08) * SAMPLE_RATE);
             }
             
             return pos - startSample; // total samples used
@@ -450,13 +546,21 @@
                 // Very low drone — the earth hum
                 addDrone(buffer, silenceEnd + Math.floor(2 * SAMPLE_RATE), end, 55, 0.035);
                 
-                // Single wren note at ~20s, very quiet, cuts off abruptly
-                // Like a ghost, like a memory of the song
+                // Ghost fragment at ~25s — a broken trill, like a memory trying to form
+                // Two quick notes of what was once a cascade, then nothing
                 const ghostPos = start + Math.floor(25 * SAMPLE_RATE);
-                if (ghostPos < end) {
-                    wrenNote(buffer, ghostPos, 4000, 0.06, 0.04);
-                    // tiny pause then one more
-                    wrenNote(buffer, ghostPos + Math.floor(0.12 * SAMPLE_RATE), 4400, 0.04, 0.03);
+                if (ghostPos + SAMPLE_RATE < end) {
+                    // Fragment of a descending cascade — just 2 notes of what was 6
+                    wrenNote(buffer, ghostPos, 4200, 3900, 0.035, 0.035);
+                    wrenNote(buffer, ghostPos + Math.floor(0.055 * SAMPLE_RATE), 3900, 3600, 0.03, 0.025);
+                    // A third that barely starts — the memory failing
+                    wrenNote(buffer, ghostPos + Math.floor(0.1 * SAMPLE_RATE), 3500, 3500, 0.008, 0.012);
+                }
+                
+                // Second ghost, even fainter, 15s later — just one note
+                const ghost2Pos = start + Math.floor(42 * SAMPLE_RATE);
+                if (ghost2Pos + SAMPLE_RATE < end) {
+                    wrenNote(buffer, ghost2Pos, 4000, 3700, 0.04, 0.018);
                 }
             }
 
@@ -476,13 +580,13 @@
                 // Wren starts after 3s, quiet, builds back to movement I levels
                 let wrenPos = start + Math.floor(3 * SAMPLE_RATE);
                 
-                // First phrase: hesitant. Single note.
-                wrenNote(buffer, wrenPos, 3800, 0.07, 0.05);
+                // First phrase: hesitant. Single note, slight downward sweep.
+                wrenNote(buffer, wrenPos, 3800, 3600, 0.07, 0.05);
                 wrenPos += Math.floor(1.5 * SAMPLE_RATE);
                 
-                // Second phrase: two notes
-                wrenNote(buffer, wrenPos, 3600, 0.06, 0.06);
-                wrenNote(buffer, wrenPos + Math.floor(0.1 * SAMPLE_RATE), 4200, 0.05, 0.06);
+                // Second phrase: two notes — the beginning of a cascade that doesn't finish
+                wrenNote(buffer, wrenPos, 4000, 3700, 0.06, 0.06);
+                wrenNote(buffer, wrenPos + Math.floor(0.1 * SAMPLE_RATE), 3700, 3400, 0.05, 0.06);
                 wrenPos += Math.floor(1.2 * SAMPLE_RATE);
                 
                 // Then full phrases resume
