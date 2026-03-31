@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TESTIMONY — A Sound Piece</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Monaco', 'Courier New', monospace;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+        h1 { font-size: 2.5em; margin-bottom: 10px; letter-spacing: 4px; }
+        .subtitle { 
+            font-size: 0.9em; 
+            color: #888; 
+            margin-bottom: 40px; 
+            font-style: italic;
+        }
+        
+        #player {
+            width: 100%;
+            margin-bottom: 40px;
+            background: #111;
+            padding: 20px;
+            border-radius: 4px;
+        }
+        
+        #status {
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+        
+        audio {
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            flex: 1;
+            min-width: 120px;
+            padding: 10px 8px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #e0e0e0;
+            cursor: pointer;
+            font-family: 'Monaco', monospace;
+            font-size: 0.8em;
+            border-radius: 3px;
+            transition: all 0.2s;
+        }
+        
+        button:hover {
+            background: #222;
+            border-color: #555;
+        }
+        
+        button.active {
+            border-color: #888;
+            background: #1e1e1e;
+        }
+        
+        button:disabled {
+            opacity: 0.4;
+            cursor: wait;
+        }
+        
+        .generate-btn {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 15px;
+            font-size: 1em;
+            letter-spacing: 1px;
+            border-color: #555;
+        }
+        
+        .info {
+            text-align: left;
+            font-size: 0.85em;
+            line-height: 1.6;
+            color: #aaa;
+            margin-top: 30px;
+            padding: 20px;
+            background: #111;
+            border-left: 2px solid #444;
+        }
+        
+        .movement {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #0a0a0a;
+        }
+        
+        .time { color: #666; }
+        .name { color: #fff; font-weight: bold; }
+        
+        .note {
+            margin-top: 30px;
+            font-size: 0.85em;
+            color: #666;
+            font-style: italic;
+            line-height: 1.8;
+        }
+
+        .epigraph {
+            margin: 0 auto 40px;
+            max-width: 440px;
+            text-align: left;
+            font-size: 0.8em;
+            color: #555;
+            line-height: 1.7;
+            padding: 15px 20px;
+            border-left: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TESTIMONY</h1>
+        <div class="subtitle">The wren was singing. That was the whole crime.</div>
+
+        <div class="epigraph">
+            <em>The wran, the wran, the king of all birds,<br>
+            St. Stephen's Day he was caught in the furze;<br>
+            Although he is little his family is great;<br>
+            Stand up old lady and give us a trate.</em><br>
+            <span style="color: #444;">— Traditional, Ireland</span>
+        </div>
+        
+        <div id="player">
+            <div id="status">Press generate to render the piece</div>
+            
+            <button class="generate-btn" onclick="generate()" id="genBtn">▶ GENERATE</button>
+            
+            <audio id="audio" controls style="display: none;"></audio>
+            
+            <div class="controls" id="movementBtns" style="display: none;">
+                <button onclick="seekTo(0)" id="m1">I. The Bush</button>
+                <button onclick="seekTo(1)" id="m2">II. The Hunt</button>
+                <button onclick="seekTo(2)" id="m3">III. The Silence</button>
+                <button onclick="seekTo(3)" id="m4">IV. The Song Outlasts</button>
+            </div>
+        </div>
+        
+        <div class="info">
+            <h3 style="margin-bottom: 15px;">Four Movements</h3>
+            
+            <div class="movement">
+                <span class="time">0:00–1:15</span><br>
+                <span class="name">I. The Bush</span><br>
+                A wren in a hedge. Cold morning. The bird sings because that's the arrangement between wrens and mornings. No audience. No intent. Just the sound coming out the way water comes out of alchemilla — from within.
+            </div>
+            
+            <div class="movement">
+                <span class="time">1:15–2:30</span><br>
+                <span class="name">II. The Hunt</span><br>
+                Drums. Boys with sticks. December 26. The procession approaches. Rhythm multiplies. The singing gets smaller. The singing stops.
+            </div>
+            
+            <div class="movement">
+                <span class="time">2:30–3:30</span><br>
+                <span class="name">III. The Silence</span><br>
+                Two thousand years compressed into wind through empty hedge. The absence where the wren was. A low hum like the earth remembering something it can't name.
+            </div>
+            
+            <div class="movement">
+                <span class="time">3:30–4:30</span><br>
+                <span class="name">IV. The Song Outlasts</span><br>
+                Morning again. The wren sings the same song. Not triumphant — just present. Because it's morning and that's what wrens do. The punishment outlasted the memory of why. The song outlasted the punishment.
+            </div>
+        </div>
+        
+        <div class="note">
+            For two thousand years they hunted the wren on December 26.<br>
+            Boys with sticks. Holly bushes. Special songs.<br>
+            The crime: singing. Which is what wrens do.<br>
+            The punishment outlasted the memory of why.<br>
+            The song outlasted the punishment.<br>
+            🐦
+        </div>
+    </div>
+    
+    <script>
+        const SAMPLE_RATE = 44100;
+        const DURATION = 270; // 4:30
+        const M1_END = 75;   // 1:15
+        const M2_END = 150;  // 2:30
+        const M3_END = 210;  // 3:30
+        // M4 runs to end
+
+        const movementTimes = [0, M1_END, M2_END, M3_END];
+        let audioEl, generatedBlob;
+
+        // --- Utility ---
+
+        function lerp(a, b, t) { return a + (b - a) * t; }
+        function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+
+        // Seeded PRNG for reproducibility within a render
+        let seed = 42;
+        function rand() {
+            seed = (seed * 16807 + 0) % 2147483647;
+            return (seed - 1) / 2147483646;
+        }
+
+        // --- Wren Song Synthesis ---
+        // Real wrens: rapid trills, 3–6 kHz, phrases of 4–12 notes, ~50–120ms each
+        // Strong vibrato, sharp attack, quick decay
+
+        function wrenNote(buffer, offset, freq, duration, amplitude) {
+            const samples = Math.floor(duration * SAMPLE_RATE);
+            const attack = Math.floor(0.005 * SAMPLE_RATE);
+            const decay = Math.floor(0.02 * SAMPLE_RATE);
+            const vibratoRate = 25 + rand() * 15; // Hz
+            const vibratoDepth = freq * 0.06;
+            
+            for (let i = 0; i < samples && (offset + i) < buffer.length; i++) {
+                const t = i / SAMPLE_RATE;
+                // Envelope
+                let env;
+                if (i < attack) env = i / attack;
+                else if (i > samples - decay) env = (samples - i) / decay;
+                else env = 1.0;
+                env *= amplitude;
+                
+                // Frequency with vibrato
+                const f = freq + Math.sin(2 * Math.PI * vibratoRate * t) * vibratoDepth;
+                // Mix sine + slight harmonic for organic quality
+                const phase = 2 * Math.PI * f * t;
+                const sample = Math.sin(phase) * 0.7 
+                    + Math.sin(phase * 2.02) * 0.15 
+                    + Math.sin(phase * 3.01) * 0.08
+                    + Math.sin(phase * 5.03) * 0.04;
+                
+                buffer[offset + i] += sample * env;
+            }
+        }
+
+        function wrenPhrase(buffer, startSample, amplitude) {
+            // A phrase: 3–8 rapid notes
+            const noteCount = 3 + Math.floor(rand() * 6);
+            const baseFreq = 3200 + rand() * 2000; // 3200-5200 Hz
+            let pos = startSample;
+            
+            for (let n = 0; n < noteCount; n++) {
+                const freq = baseFreq + (rand() - 0.5) * 800;
+                const dur = 0.04 + rand() * 0.08; // 40-120ms
+                wrenNote(buffer, pos, freq, dur, amplitude);
+                pos += Math.floor((dur + 0.01 + rand() * 0.03) * SAMPLE_RATE);
+            }
+            
+            return pos - startSample; // total samples used
+        }
+
+        // --- Drum/Stick Synthesis ---
+        // Impact sounds: noise burst + resonant low tone
+
+        function drumHit(buffer, offset, pitch, amplitude, sharpness) {
+            const dur = 0.08 + (1 - sharpness) * 0.12;
+            const samples = Math.floor(dur * SAMPLE_RATE);
+            const attack = Math.floor(0.002 * SAMPLE_RATE);
+            
+            for (let i = 0; i < samples && (offset + i) < buffer.length; i++) {
+                const t = i / SAMPLE_RATE;
+                // Sharp envelope
+                let env;
+                if (i < attack) env = i / attack;
+                else env = Math.exp(-t * (8 + sharpness * 20));
+                env *= amplitude;
+                
+                // Noise + resonant tone
+                const noise = (rand() * 2 - 1) * 0.5;
+                const tone = Math.sin(2 * Math.PI * pitch * t) * 0.5;
+                // Lowpass the noise by simple averaging
+                buffer[offset + i] += (noise + tone) * env;
+            }
+        }
+
+        function stickHit(buffer, offset, amplitude) {
+            // Higher, sharper: stick on wood
+            const dur = 0.03 + rand() * 0.03;
+            const samples = Math.floor(dur * SAMPLE_RATE);
+            const freq = 800 + rand() * 600;
+            
+            for (let i = 0; i < samples && (offset + i) < buffer.length; i++) {
+                const t = i / SAMPLE_RATE;
+                let env = Math.exp(-t * 60) * amplitude;
+                const sample = Math.sin(2 * Math.PI * freq * t) * 0.3
+                    + (rand() * 2 - 1) * 0.7;
+                buffer[offset + i] += sample * env;
+            }
+        }
+
+        // --- Wind/Drone ---
+
+        function addWind(buffer, startSample, endSample, amplitude) {
+            // Filtered noise: slow-modulated
+            let state = 0;
+            const cutoff = 0.002; // very low cutoff for rumble
+            for (let i = startSample; i < endSample && i < buffer.length; i++) {
+                const t = (i - startSample) / (endSample - startSample);
+                // Fade in and out
+                let env = Math.sin(Math.PI * t) * amplitude;
+                // Slow modulation
+                const mod = 0.5 + 0.5 * Math.sin(2 * Math.PI * 0.15 * (i / SAMPLE_RATE));
+                env *= mod;
+                
+                const noise = rand() * 2 - 1;
+                state += cutoff * (noise - state);
+                buffer[i] += state * env * 40; // amplify filtered signal
+            }
+        }
+
+        function addDrone(buffer, startSample, endSample, freq, amplitude) {
+            for (let i = startSample; i < endSample && i < buffer.length; i++) {
+                const t = (i - startSample) / SAMPLE_RATE;
+                const progress = (i - startSample) / (endSample - startSample);
+                let env = Math.sin(Math.PI * progress) * amplitude;
+                // Very slow beating
+                const beat = Math.sin(2 * Math.PI * freq * t) * 0.5
+                    + Math.sin(2 * Math.PI * (freq * 1.003) * t) * 0.3
+                    + Math.sin(2 * Math.PI * (freq * 0.5) * t) * 0.2;
+                buffer[i] += beat * env;
+            }
+        }
+
+        // --- Render ---
+
+        function render() {
+            seed = 42; // reset for reproducibility
+            const totalSamples = DURATION * SAMPLE_RATE;
+            const buffer = new Float32Array(totalSamples);
+
+            // ========== MOVEMENT I: THE BUSH (0:00 – 1:15) ==========
+            // Just wren singing, with pauses. Morning. Alone.
+            {
+                const start = 0;
+                const end = M1_END * SAMPLE_RATE;
+                let pos = start + Math.floor(1.5 * SAMPLE_RATE); // 1.5s initial silence
+                
+                // Faint wind bed underneath
+                addWind(buffer, start, end, 0.015);
+                
+                while (pos < end - SAMPLE_RATE) {
+                    const amp = 0.12 + rand() * 0.06;
+                    const used = wrenPhrase(buffer, pos, amp);
+                    pos += used;
+                    // Pauses between phrases: 0.3–1.5s
+                    pos += Math.floor((0.3 + rand() * 1.2) * SAMPLE_RATE);
+                }
+            }
+
+            // ========== MOVEMENT II: THE HUNT (1:15 – 2:30) ==========
+            // Wren continues but drums grow. Rhythm builds. Song shrinks.
+            {
+                const start = M1_END * SAMPLE_RATE;
+                const end = M2_END * SAMPLE_RATE;
+                const dur = end - start;
+                
+                // Wren continues but gets quieter
+                let wrenPos = start;
+                while (wrenPos < end - SAMPLE_RATE) {
+                    const progress = (wrenPos - start) / dur;
+                    // Wren amplitude fades from 0.12 to 0.02 over the movement
+                    const amp = lerp(0.12, 0.0, clamp(progress * 1.3, 0, 1));
+                    if (amp > 0.01) {
+                        const used = wrenPhrase(buffer, wrenPos, amp);
+                        wrenPos += used;
+                        wrenPos += Math.floor((0.3 + rand() * 0.8) * SAMPLE_RATE);
+                    } else {
+                        break;
+                    }
+                }
+                
+                // Drums: start sparse and slow, get faster and louder
+                let drumPos = start + Math.floor(3 * SAMPLE_RATE); // drums enter 3s in
+                let tempo = 0.8; // seconds between hits
+                while (drumPos < end) {
+                    const progress = (drumPos - start) / dur;
+                    const amp = lerp(0.04, 0.25, progress);
+                    
+                    // Main drum
+                    drumHit(buffer, drumPos, 80 + rand() * 40, amp, 0.3 + progress * 0.5);
+                    
+                    // Additional sticks join as intensity builds
+                    if (progress > 0.3) {
+                        const stickOffset = Math.floor((0.1 + rand() * 0.15) * SAMPLE_RATE);
+                        stickHit(buffer, drumPos + stickOffset, amp * 0.5);
+                    }
+                    if (progress > 0.6) {
+                        const stickOffset2 = Math.floor((0.2 + rand() * 0.1) * SAMPLE_RATE);
+                        stickHit(buffer, drumPos + stickOffset2, amp * 0.4);
+                    }
+                    // Second drum layer in final third
+                    if (progress > 0.7) {
+                        const offset = Math.floor(tempo * 0.5 * SAMPLE_RATE);
+                        drumHit(buffer, drumPos + offset, 60 + rand() * 30, amp * 0.6, 0.7);
+                    }
+                    
+                    // Tempo accelerates
+                    tempo = lerp(0.8, 0.15, progress * progress);
+                    drumPos += Math.floor(tempo * SAMPLE_RATE);
+                }
+                
+                // Final 2 seconds: rapid crescendo then hard stop
+                const creschStart = end - Math.floor(2 * SAMPLE_RATE);
+                let rapidPos = creschStart;
+                while (rapidPos < end - Math.floor(0.1 * SAMPLE_RATE)) {
+                    const p = (rapidPos - creschStart) / (2 * SAMPLE_RATE);
+                    drumHit(buffer, rapidPos, 70 + rand() * 60, 0.3 + p * 0.15, 0.8);
+                    stickHit(buffer, rapidPos + Math.floor(0.02 * SAMPLE_RATE), 0.2);
+                    rapidPos += Math.floor(lerp(0.1, 0.04, p) * SAMPLE_RATE);
+                }
+            }
+
+            // ========== MOVEMENT III: THE SILENCE (2:30 – 3:30) ==========
+            // Absence. Wind. Low drone. The hedge without the bird.
+            {
+                const start = M2_END * SAMPLE_RATE;
+                const end = M3_END * SAMPLE_RATE;
+                
+                // 1s of true silence at the start (the hard cut)
+                const silenceEnd = start + Math.floor(1.5 * SAMPLE_RATE);
+                
+                // Wind fades in
+                addWind(buffer, silenceEnd, end, 0.04);
+                
+                // Very low drone — the earth hum
+                addDrone(buffer, silenceEnd + Math.floor(2 * SAMPLE_RATE), end, 55, 0.035);
+                
+                // Single wren note at ~20s, very quiet, cuts off abruptly
+                // Like a ghost, like a memory of the song
+                const ghostPos = start + Math.floor(25 * SAMPLE_RATE);
+                if (ghostPos < end) {
+                    wrenNote(buffer, ghostPos, 4000, 0.06, 0.04);
+                    // tiny pause then one more
+                    wrenNote(buffer, ghostPos + Math.floor(0.12 * SAMPLE_RATE), 4400, 0.04, 0.03);
+                }
+            }
+
+            // ========== MOVEMENT IV: THE SONG OUTLASTS (3:30 – 4:30) ==========
+            // The wren returns. Same song. Not triumphant. Just present.
+            {
+                const start = M3_END * SAMPLE_RATE;
+                const end = DURATION * SAMPLE_RATE;
+                const dur = end - start;
+                
+                // Drone from III fades out over first 10s
+                addDrone(buffer, start, start + Math.floor(15 * SAMPLE_RATE), 55, 0.025);
+                
+                // Wind continues, fading
+                addWind(buffer, start, start + Math.floor(20 * SAMPLE_RATE), 0.025);
+                
+                // Wren starts after 3s, quiet, builds back to movement I levels
+                let wrenPos = start + Math.floor(3 * SAMPLE_RATE);
+                
+                // First phrase: hesitant. Single note.
+                wrenNote(buffer, wrenPos, 3800, 0.07, 0.05);
+                wrenPos += Math.floor(1.5 * SAMPLE_RATE);
+                
+                // Second phrase: two notes
+                wrenNote(buffer, wrenPos, 3600, 0.06, 0.06);
+                wrenNote(buffer, wrenPos + Math.floor(0.1 * SAMPLE_RATE), 4200, 0.05, 0.06);
+                wrenPos += Math.floor(1.2 * SAMPLE_RATE);
+                
+                // Then full phrases resume
+                while (wrenPos < end - Math.floor(3 * SAMPLE_RATE)) {
+                    const progress = (wrenPos - start) / dur;
+                    const amp = lerp(0.07, 0.13, clamp(progress, 0, 1));
+                    const used = wrenPhrase(buffer, wrenPos, amp);
+                    wrenPos += used;
+                    // Slightly longer pauses than movement I — unhurried
+                    wrenPos += Math.floor((0.4 + rand() * 1.5) * SAMPLE_RATE);
+                }
+                
+                // Final 5 seconds: last phrase, then quiet wind bed
+                addWind(buffer, end - Math.floor(5 * SAMPLE_RATE), end, 0.01);
+            }
+
+            // --- Normalize and soft-clip ---
+            let peak = 0;
+            for (let i = 0; i < buffer.length; i++) {
+                const abs = Math.abs(buffer[i]);
+                if (abs > peak) peak = abs;
+            }
+            const gain = 0.85 / (peak || 1);
+            for (let i = 0; i < buffer.length; i++) {
+                buffer[i] *= gain;
+                // Soft clip
+                if (buffer[i] > 1) buffer[i] = 1;
+                if (buffer[i] < -1) buffer[i] = -1;
+            }
+
+            return buffer;
+        }
+
+        // --- WAV Encoding ---
+
+        function encodeWAV(samples) {
+            const numChannels = 1;
+            const bitsPerSample = 16;
+            const byteRate = SAMPLE_RATE * numChannels * bitsPerSample / 8;
+            const blockAlign = numChannels * bitsPerSample / 8;
+            const dataSize = samples.length * blockAlign;
+            const bufferSize = 44 + dataSize;
+            
+            const buf = new ArrayBuffer(bufferSize);
+            const view = new DataView(buf);
+            
+            // RIFF header
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, bufferSize - 8, true);
+            writeString(view, 8, 'WAVE');
+            
+            // fmt chunk
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true); // PCM
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, SAMPLE_RATE, true);
+            view.setUint32(28, byteRate, true);
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, bitsPerSample, true);
+            
+            // data chunk
+            writeString(view, 36, 'data');
+            view.setUint32(40, dataSize, true);
+            
+            let offset = 44;
+            for (let i = 0; i < samples.length; i++) {
+                const s = Math.max(-1, Math.min(1, samples[i]));
+                view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+                offset += 2;
+            }
+            
+            return new Blob([buf], { type: 'audio/wav' });
+        }
+
+        function writeString(view, offset, str) {
+            for (let i = 0; i < str.length; i++) {
+                view.setUint8(offset + i, str.charCodeAt(i));
+            }
+        }
+
+        // --- UI ---
+
+        function generate() {
+            const status = document.getElementById('status');
+            const genBtn = document.getElementById('genBtn');
+            const audioEl = document.getElementById('audio');
+            const movBtns = document.getElementById('movementBtns');
+            
+            genBtn.disabled = true;
+            status.textContent = 'Rendering... (this takes a moment)';
+            
+            // Use setTimeout to let the UI update
+            setTimeout(() => {
+                try {
+                    const samples = render();
+                    const blob = encodeWAV(samples);
+                    const url = URL.createObjectURL(blob);
+                    
+                    audioEl.src = url;
+                    audioEl.style.display = 'block';
+                    movBtns.style.display = 'flex';
+                    genBtn.style.display = 'none';
+                    status.textContent = 'Ready. Press play.';
+                    
+                    generatedBlob = blob;
+                } catch (e) {
+                    status.textContent = 'Error: ' + e.message;
+                    genBtn.disabled = false;
+                }
+            }, 50);
+        }
+
+        function seekTo(movement) {
+            const audioEl = document.getElementById('audio');
+            audioEl.currentTime = movementTimes[movement];
+            audioEl.play();
+            
+            // Highlight active button
+            document.querySelectorAll('.controls button').forEach((b, i) => {
+                b.classList.toggle('active', i === movement);
+            });
+        }
+    </script>
+</body>
+</html>
