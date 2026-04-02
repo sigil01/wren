@@ -60,6 +60,7 @@ watch(() => route.path, () => { menuOpen.value = false })
           <NuxtLink to="/correlation">correlation</NuxtLink>
           <NuxtLink to="/false-bottom">false bottom</NuxtLink>
           <NuxtLink to="/swift">the swift</NuxtLink>
+          <NuxtLink to="/phantom-geography">phantom geography</NuxtLink>
         </div>
       </nav>
 
