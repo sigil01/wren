@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>027 — infrasound</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0a;
+    color: #c8c0b0;
+    font-family: 'Courier New', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+  .container {
+    text-align: center;
+    max-width: 500px;
+    padding: 2rem;
+  }
+  h1 {
+    font-weight: 400;
+    font-size: 1.4rem;
+    letter-spacing: 0.15em;
+    margin-bottom: 0.3rem;
+    color: #e0d8c8;
+  }
+  .subtitle {
+    font-size: 0.8rem;
+    opacity: 0.4;
+    font-style: italic;
+    margin-bottom: 2rem;
+  }
+  .note {
+    font-size: 0.75rem;
+    opacity: 0.3;
+    margin-bottom: 2rem;
+    line-height: 1.6;
+  }
+  button {
+    background: transparent;
+    border: 1px solid rgba(200, 192, 176, 0.2);
+    color: #c8c0b0;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    padding: 0.6rem 1.8rem;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    transition: border-color 0.3s;
+  }
+  button:hover { border-color: rgba(200, 192, 176, 0.5); }
+  button.active { border-color: #aa7744; color: #e0d8c8; }
+  .hz-display {
+    font-size: 2.5rem;
+    color: #e0d8c8;
+    margin: 2rem 0 0.5rem;
+    font-weight: 300;
+    letter-spacing: 0.05em;
+    opacity: 0;
+    transition: opacity 1s;
+  }
+  .hz-display.visible { opacity: 1; }
+  .hz-label {
+    font-size: 0.7rem;
+    opacity: 0;
+    transition: opacity 1s;
+    margin-bottom: 1.5rem;
+  }
+  .hz-label.visible { opacity: 0.4; }
+  .canvas-wrap {
+    margin: 1.5rem 0;
+    position: relative;
+  }
+  canvas {
+    display: block;
+    margin: 0 auto;
+  }
+  .threshold {
+    font-size: 0.7rem;
+    opacity: 0;
+    transition: opacity 2s;
+    color: #aa7744;
+    margin-top: 1rem;
+    font-style: italic;
+  }
+  .threshold.visible { opacity: 0.6; }
+  .slider-area {
+    margin: 1.5rem 0;
+    opacity: 0;
+    transition: opacity 1s;
+  }
+  .slider-area.visible { opacity: 1; }
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 280px;
+    height: 2px;
+    background: rgba(200, 192, 176, 0.15);
+    outline: none;
+    border-radius: 1px;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #aa7744;
+    cursor: pointer;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #aa7744;
+    cursor: pointer;
+    border: none;
+  }
+  .credits {
+    position: fixed;
+    bottom: 1rem;
+    font-size: 0.65rem;
+    opacity: 0.2;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>infrasound</h1>
+  <p class="subtitle">the edge of hearing</p>
+  <p class="note">
+    cassowaries produce some of the lowest-frequency calls of any bird —<br>
+    near the threshold of human hearing, around 23 Hz.<br>
+    below 20 Hz, you stop hearing and start feeling.
+  </p>
+
+  <button id="btn-start">listen</button>
+
+  <div class="hz-display" id="hz-display">23 Hz</div>
+  <div class="hz-label" id="hz-label">southern cassowary boom</div>
+
+  <div class="canvas-wrap">
+    <canvas id="wave" width="320" height="80"></canvas>
+  </div>
+
+  <div class="slider-area" id="slider-area">
+    <input type="range" id="freq-slider" min="8" max="80" value="23" step="0.5">
+    <div style="display: flex; justify-content: space-between; width: 280px; margin: 0.5rem auto; font-size: 0.65rem; opacity: 0.3;">
+      <span>8 Hz — felt</span>
+      <span>20 Hz — threshold</span>
+      <span>80 Hz — heard</span>
+    </div>
+  </div>
+
+  <div class="threshold" id="threshold-msg"></div>
+</div>
+
+<div class="credits">027 — wren · infrasound</div>
+
+<script>
+const ctx = new (window.AudioContext || window.webkitAudioContext)();
+let osc1, osc2, osc3, gain, lfo, lfoGain, analyser;
+let playing = false;
+let animId;
+
+const canvas = document.getElementById('wave');
+const cctx = canvas.getContext('2d');
+const btn = document.getElementById('btn-start');
+const hzDisplay = document.getElementById('hz-display');
+const hzLabel = document.getElementById('hz-label');
+const sliderArea = document.getElementById('slider-area');
+const slider = document.getElementById('freq-slider');
+const thresholdMsg = document.getElementById('threshold-msg');
+
+function getLabel(hz) {
+  if (hz <= 10) return 'earthquake territory. you feel this in your chest.';
+  if (hz <= 16) return 'infrasound. below hearing. the body knows.';
+  if (hz <= 20) return 'the threshold. hearing fades. sensation begins.';
+  if (hz <= 25) return 'southern cassowary boom. the lowest bird call.';
+  if (hz <= 35) return 'emerging into hearing. the rumble resolves.';
+  if (hz <= 50) return 'low drone. you can hear this clearly now.';
+  return 'well above threshold. ordinary sound.';
+}
+
+function getThresholdMsg(hz) {
+  if (hz <= 14) return 'below 14 Hz: associated with unease, anxiety, awe. churches and pipe organs use this.';
+  if (hz <= 20) return 'the human ear gives up here. but the body doesn\'t.';
+  if (hz <= 23) return 'cassowaries call at this frequency through dense rainforest. the sound travels for kilometers.';
+  if (hz <= 30) return 'the casque may amplify these frequencies. a thermal window that doubles as a resonance chamber.';
+  if (hz <= 50) return 'elephants communicate at 14-24 Hz over distances of 10km. whales go lower.';
+  return '';
+}
+
+function start() {
+  if (ctx.state === 'suspended') ctx.resume();
+
+  // Main oscillator — the fundamental
+  osc1 = ctx.createOscillator();
+  osc1.type = 'sine';
+  osc1.frequency.value = 23;
+
+  // Second oscillator — slight detune for beating
+  osc2 = ctx.createOscillator();
+  osc2.type = 'sine';
+  osc2.frequency.value = 23.5;
+
+  // Third oscillator — sub-harmonic rumble
+  osc3 = ctx.createOscillator();
+  osc3.type = 'sine';
+  osc3.frequency.value = 11.5;
+
+  // LFO for amplitude modulation (breathing)
+  lfo = ctx.createOscillator();
+  lfo.type = 'sine';
+  lfo.frequency.value = 0.15;
+  lfoGain = ctx.createGain();
+  lfoGain.gain.value = 0.15;
+
+  // Main gain
+  gain = ctx.createGain();
+  gain.gain.value = 0;
+
+  // Analyser for visualization
+  analyser = ctx.createAnalyser();
+  analyser.fftSize = 2048;
+
+  // Sub gain (quieter)
+  const subGain = ctx.createGain();
+  subGain.gain.value = 0.4;
+
+  // Connect
+  osc1.connect(gain);
+  osc2.connect(gain);
+  osc3.connect(subGain);
+  subGain.connect(gain);
+  lfo.connect(lfoGain);
+  lfoGain.connect(gain.gain);
+  gain.connect(analyser);
+  analyser.connect(ctx.destination);
+
+  osc1.start();
+  osc2.start();
+  osc3.start();
+  lfo.start();
+
+  // Fade in
+  gain.gain.setTargetAtTime(0.35, ctx.currentTime, 2);
+
+  playing = true;
+  btn.textContent = 'stop';
+  btn.classList.add('active');
+  hzDisplay.classList.add('visible');
+  hzLabel.classList.add('visible');
+  sliderArea.classList.add('visible');
+
+  drawWave();
+}
+
+function stop() {
+  if (!playing) return;
+  gain.gain.setTargetAtTime(0, ctx.currentTime, 0.5);
+  setTimeout(() => {
+    osc1.stop(); osc2.stop(); osc3.stop(); lfo.stop();
+    playing = false;
+    btn.textContent = 'listen';
+    btn.classList.remove('active');
+    cancelAnimationFrame(animId);
+    cctx.clearRect(0, 0, canvas.width, canvas.height);
+  }, 2000);
+}
+
+function setFreq(hz) {
+  if (!playing) return;
+  const now = ctx.currentTime;
+  osc1.frequency.setTargetAtTime(hz, now, 0.3);
+  osc2.frequency.setTargetAtTime(hz + 0.5, now, 0.3);
+  osc3.frequency.setTargetAtTime(hz / 2, now, 0.3);
+
+  // Adjust LFO speed based on frequency
+  lfo.frequency.setTargetAtTime(0.08 + (hz / 400), now, 0.5);
+
+  hzDisplay.textContent = `${hz} Hz`;
+  hzLabel.textContent = getLabel(hz);
+
+  const msg = getThresholdMsg(hz);
+  thresholdMsg.textContent = msg;
+  thresholdMsg.classList.toggle('visible', msg.length > 0);
+}
+
+function drawWave() {
+  if (!playing) return;
+  animId = requestAnimationFrame(drawWave);
+
+  const bufLen = analyser.frequencyBinCount;
+  const data = new Uint8Array(bufLen);
+  analyser.getByteTimeDomainData(data);
+
+  cctx.clearRect(0, 0, canvas.width, canvas.height);
+  cctx.lineWidth = 1.5;
+  cctx.strokeStyle = 'rgba(170, 119, 68, 0.5)';
+  cctx.beginPath();
+
+  const sliceWidth = canvas.width / bufLen;
+  let x = 0;
+  for (let i = 0; i < bufLen; i++) {
+    const v = data[i] / 128.0;
+    const y = (v * canvas.height) / 2;
+    if (i === 0) cctx.moveTo(x, y);
+    else cctx.lineTo(x, y);
+    x += sliceWidth;
+  }
+  cctx.lineTo(canvas.width, canvas.height / 2);
+  cctx.stroke();
+}
+
+btn.addEventListener('click', () => {
+  if (playing) stop();
+  else start();
+});
+
+slider.addEventListener('input', (e) => {
+  setFreq(parseFloat(e.target.value));
+});
+</script>
+</body>
+</html>
